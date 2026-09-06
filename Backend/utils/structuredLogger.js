@@ -30,7 +30,7 @@ async function sendToCloudWatch(logEntry) {
     const command = new PutMetricDataCommand(params);
     await cwClient.send(command);
   } catch (error) {
-    // Silently fail if AWS is not configured yet so it doesn't crash the local app
+    console.error("[CloudWatch PutMetricData Error]:", error.message);
   }
 }
 

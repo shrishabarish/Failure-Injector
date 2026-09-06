@@ -48,7 +48,8 @@ export default function FailureInjection() {
     setActionLoading(true);
     const bodyPayload = { type, targetService, ...payload };
     try {
-      const res = await fetch(`${API_BASE_URL}/fault/inject`, {
+      const baseUrl = "/api";
+      const res = await fetch(`${baseUrl}/fault/inject`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(bodyPayload),
@@ -70,7 +71,8 @@ export default function FailureInjection() {
   const handleReset = async () => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/fault/reset`, {
+      const baseUrl = "/api";
+      const res = await fetch(`${baseUrl}/fault/reset`, {
         method: "POST",
         headers: getHeaders(),
       });

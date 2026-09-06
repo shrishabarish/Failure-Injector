@@ -49,6 +49,9 @@ services:
       JWT_SECRET: b282db152b22f235594d6ba42d0b32b885f5850df26d7331410c483f7894fa20172db272fcf91c79234d0c61bb7da3d5cea3e57ac41c9c420736a3fafa485033
       ADMIN_API_KEY: admin-fault-injection-secret-key
       FAULT_INJECTION_ENABLED: "true"
+      AWS_REGION: eu-north-1
+      AWS_ACCESS_KEY_ID: 
+      AWS_SECRET_ACCESS_KEY: 
     depends_on:
       postgres:
         condition: service_healthy
