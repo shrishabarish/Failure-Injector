@@ -3,7 +3,7 @@ const { CloudWatchClient, PutMetricDataCommand } = require("@aws-sdk/client-clou
 
 // Initialize CloudWatch Client
 // It automatically uses credentials from environment variables, ~/.aws/credentials, or IAM roles
-const cwClient = new CloudWatchClient({ region: process.env.AWS_REGION || "us-east-1" });
+const cwClient = new CloudWatchClient({ region: process.env.AWS_REGION || "eu-north-1" });
 
 async function sendToCloudWatch(logEntry) {
   try {
