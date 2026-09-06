@@ -1,33 +1,37 @@
-﻿const Log = require("../models/LogModel");
-const http = require("http");
-const url = require("url");
+const Log = require("../models/LogModel");
+const { CloudWatchClient, PutMetricDataCommand } = require("@aws-sdk/client-cloudwatch");
 
-// RCA Webhook: fire-and-forget POST to CloudLens RCA platform
-const RCA_WEBHOOK_URL = process.env.RCA_WEBHOOK_URL || null;
+// Initialize CloudWatch Client
+// It automatically uses credentials from environment variables, ~/.aws/credentials, or IAM roles
+const cwClient = new CloudWatchClient({ region: process.env.AWS_REGION || "us-east-1" });
 
-function sendToRcaWebhook(logEntry) {
-  if (!RCA_WEBHOOK_URL) return;
+async function sendToCloudWatch(logEntry) {
   try {
-    const parsed = url.parse(RCA_WEBHOOK_URL);
-    const postData = JSON.stringify(logEntry);
-    const options = {
-      hostname: parsed.hostname,
-      port: parsed.port || 80,
-      path: parsed.path,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(postData),
-        "X-Source-App": "aws-failure-codereview",
-      },
-      timeout: 3000,
+    // Extract the Target Service (EC2, DynamoDB, Auth, Worker, API, or Application)
+    const targetService = (logEntry.details && logEntry.details.targetService) || logEntry.module || "Application";
+    const faultType = logEntry.event || "Unknown";
+
+    const params = {
+      Namespace: "ChaosLab/Faults",
+      MetricData: [
+        {
+          MetricName: logEntry.is_fault_injected ? "FaultInjected" : "ServiceError",
+          Value: 1,
+          Unit: "Count",
+          Dimensions: [
+            { Name: "TargetService", Value: targetService },
+            { Name: "FaultType", Value: faultType }
+          ],
+          Timestamp: new Date(logEntry.timestamp)
+        }
+      ]
     };
-    const req = http.request(options, () => {});
-    req.on("error", () => {}); // silent: RCA platform may be down
-    req.on("timeout", () => req.destroy());
-    req.write(postData);
-    req.end();
-  } catch (_) {}
+    
+    const command = new PutMetricDataCommand(params);
+    await cwClient.send(command);
+  } catch (error) {
+    // Silently fail if AWS is not configured yet so it doesn't crash the local app
+  }
 }
 
 const structuredLogger = {
@@ -63,6 +67,39 @@ const structuredLogger = {
       details,
     };
 
+    // Enrich logs with telemetry data if a fault is injected
+    if (isFaultInjected && details.type) {
+      logEntry.event_type = details.type;
+      
+      switch (details.type) {
+        case "db_disconnect":
+          logEntry.metric = "DatabaseConnectionState";
+          logEntry.value = 0; // 0 implies down
+          logEntry.severity = "HIGH";
+          break;
+        case "db_latency":
+          logEntry.metric = "DatabaseQueryLatency";
+          logEntry.value = details.payload?.delayMs || 4000;
+          logEntry.severity = "MEDIUM";
+          break;
+        case "api_error":
+          logEntry.metric = "5xxErrorRate";
+          logEntry.value = 100.0;
+          logEntry.severity = "CRITICAL";
+          break;
+        case "dependency_timeout":
+          logEntry.metric = "DependencyLatency";
+          logEntry.value = details.payload?.delayMs || 8000;
+          logEntry.severity = "HIGH";
+          break;
+        case "service_unhealthy":
+          logEntry.metric = "ServiceHealthState";
+          logEntry.value = 0; // 0 implies unhealthy
+          logEntry.severity = "CRITICAL";
+          break;
+      }
+    }
+
     if (level === "ERROR" || level === "CRITICAL") {
       console.error(JSON.stringify(logEntry));
     } else if (level === "WARN") {
@@ -71,9 +108,9 @@ const structuredLogger = {
       console.log(JSON.stringify(logEntry));
     }
 
-    // Push ERROR/CRITICAL/WARN telemetry to RCA platform webhook
+    // Push ERROR/CRITICAL/WARN telemetry to AWS CloudWatch
     if (level === "ERROR" || level === "CRITICAL" || level === "WARN") {
-      sendToRcaWebhook(logEntry);
+      sendToCloudWatch(logEntry);
     }
 
     try {

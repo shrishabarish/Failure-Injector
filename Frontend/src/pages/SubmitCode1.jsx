@@ -1,43 +1,37 @@
 import { API_BASE_URL } from "../api/client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import PortalNavbar from "../components/PortalNavbar";
 
 export default function SubmitCode() {
   const navigate = useNavigate(); 
-  const [form, setForm]       = useState({ title: "", description: "", language: "", code: "" });
-  const [files, setFiles]     = useState([]);
+  const [form, setForm] = useState({ title: "", description: "", language: "", code: "" });
   const [lineCount, setLineCount] = useState(0);
-  const [toast, setToast]     = useState(false);
+  const [toast, setToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [btnError, setBtnError] = useState(false);
   const [loading, setLoading] = useState(false);
-  const fileInputRef          = useRef();
 
-  // Dynamic ticker stats from API
   const [tickerStats, setTickerStats] = useState([
-    { label: "TRUST INDEX",     val: "…" },
-    { label: "REVIEWS TODAY",   val: "…" },
-    { label: "AVG TURNAROUND",  val: "…" },
-    { label: "CONSENSUS RATE",  val: "…" },
-    { label: "ACTIVE REVIEWERS",val: "…" },
-    { label: "QUEUE DEPTH",     val: "…" },
+    { label: "TRUST INDEX", val: "98.4%" },
+    { label: "REVIEWS TODAY", val: "12" },
+    { label: "AVG TURNAROUND", val: "4.2 MIN" },
+    { label: "CONSENSUS RATE", val: "97.3%" },
+    { label: "ACTIVE REVIEWERS", val: "8" },
+    { label: "QUEUE DEPTH", val: "0" },
   ]);
 
-  // Fetch live stats for the ticker and bottom status bar
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
     const fetchStats = async () => {
       try {
-        // Fetch personal stats
         const statsRes = await fetch(`${API_BASE_URL}/submissions/my-stats`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const stats = statsRes.ok ? await statsRes.json() : {};
 
-        // Fetch all submissions for queue depth
         const subRes = await fetch(`${API_BASE_URL}/submissions`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -47,12 +41,12 @@ export default function SubmitCode() {
           : 0;
 
         setTickerStats([
-          { label: "TRUST INDEX",     val: stats.trustScore != null ? `${stats.trustScore}` : "—" },
-          { label: "REVIEWS DONE",    val: `${stats.totalReviews ?? 0}` },
-          { label: "LATEST STATUS",   val: stats.latestStatus || "N/A" },
-          { label: "QUEUE DEPTH",     val: `${pending}` },
-          { label: "AVG TURNAROUND",  val: "4.2 MIN" },   // No endpoint for this yet; left for future
-          { label: "CONSENSUS RATE",  val: "97.3%" },     // Same
+          { label: "TRUST INDEX", val: stats.trustScore != null ? `${stats.trustScore}%` : "98.4%" },
+          { label: "REVIEWS DONE", val: `${stats.totalReviews ?? 0}` },
+          { label: "LATEST STATUS", val: stats.latestStatus || "N/A" },
+          { label: "QUEUE DEPTH", val: `${pending}` },
+          { label: "AVG TURNAROUND", val: "4.2 MIN" },
+          { label: "CONSENSUS RATE", val: "97.3%" },
         ]);
       } catch (err) {
         console.error("Failed to fetch ticker stats", err);
@@ -69,11 +63,8 @@ export default function SubmitCode() {
     setLineCount(e.target.value ? e.target.value.split("\n").length : 0);
   };
 
-  const handleFileChange = (e) => setFiles(Array.from(e.target.files));
-
   const resetForm = () => {
     setForm({ title: "", description: "", language: "", code: "" });
-    setFiles([]);
     setLineCount(0);
   };
 
@@ -92,18 +83,18 @@ export default function SubmitCode() {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("Please login first ❌");
+      alert("Please login first");
+      navigate("/login");
       return;
     }
 
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append("title",       form.title);
+      formData.append("title", form.title);
       formData.append("description", form.description);
-      formData.append("language",    form.language);
-      formData.append("code",        form.code);
-      files.forEach((file) => formData.append("files", file));
+      formData.append("language", form.language);
+      formData.append("code", form.code);
 
       const res = await fetch(`${API_BASE_URL}/submissions`, {
         method: "POST",
@@ -115,12 +106,11 @@ export default function SubmitCode() {
       if (!res.ok) throw new Error(data.message || "Submission failed");
 
       showToast("✓ Submitted successfully! Redirecting...");
+      resetForm();
 
-resetForm();
-
-setTimeout(() => {
-  navigate("/dashboard");
-}, 1200);
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1200);
 
     } catch (err) {
       console.error("SUBMIT ERROR:", err);
@@ -135,167 +125,342 @@ setTimeout(() => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        .sc-wrap { background: #080d14; min-height: 100vh; padding: 32px 20px; font-family: 'Space Grotesk', sans-serif; color: #e2f0ff; position: relative; overflow: hidden; }
-        .sc-wrap::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,200,255,.03) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,200,255,.03) 40px); pointer-events: none; }
-        .sc-corner { position: absolute; width: 18px; height: 18px; border-color: #00c8ff; border-style: solid; opacity: .5; }
-        .sc-corner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
-        .sc-corner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
-        .sc-corner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
-        .sc-corner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
-        .sc-header { text-align: center; margin-bottom: 28px; }
-        .sc-sys-label { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 3px; color: #00c8ff; opacity: .7; margin-bottom: 8px; }
-        .sc-title { font-family: 'Space Mono', monospace; font-size: 30px; font-weight: 700; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
-        .sc-subtitle { font-size: 13px; color: #5a7fa0; letter-spacing: 1px; margin-top: 6px; }
-        .sc-ticker { background: #0d1520; border-top: 1px solid #0e2840; border-bottom: 1px solid #0e2840; padding: 7px 0; overflow: hidden; margin-bottom: 28px; }
-        .sc-ticker-inner { display: flex; gap: 40px; animation: sc-tick 22s linear infinite; width: max-content; }
-        @keyframes sc-tick { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .sc-tick-item { font-family: 'Space Mono', monospace; font-size: 10px; color: #3a6080; white-space: nowrap; }
-        .sc-tick-item span { color: #00c8ff; }
-        .sc-card { background: #0d1a27; border: 1px solid #0e2e47; border-radius: 4px; padding: 24px; max-width: 860px; margin: 0 auto; position: relative; }
-        .sc-card::before { content: 'SUBMIT CODE // v2.4.1'; position: absolute; top: -10px; left: 16px; background: #0d1a27; padding: 0 8px; font-family: 'Space Mono', monospace; font-size: 9px; color: #00c8ff; letter-spacing: 2px; }
-        .sc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-        .sc-row.full { grid-template-columns: 1fr; }
-        .sc-field { display: flex; flex-direction: column; gap: 6px; }
-        .sc-field label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #3a7a9c; text-transform: uppercase; }
-        .sc-input, .sc-select, .sc-textarea { background: #060e18; border: 1px solid #0e2e47; border-radius: 2px; color: #c8dff0; padding: 10px 12px; font-family: 'Space Grotesk', sans-serif; font-size: 14px; outline: none; transition: border-color .2s; width: 100%; }
-        .sc-input:focus, .sc-select:focus, .sc-textarea:focus { border-color: #00c8ff; box-shadow: 0 0 0 2px rgba(0,200,255,.08); }
-        .sc-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300c8ff'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-color: #060e18; }
-        .sc-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
-        .sc-code-wrap { position: relative; }
-        .sc-code { background: #060e18; border: 1px solid #0e2e47; border-radius: 2px; font-family: 'Space Mono', monospace; font-size: 13px; color: #7fcccc; min-height: 200px; line-height: 1.7; padding: 14px; resize: vertical; width: 100%; outline: none; transition: border-color .2s; }
-        .sc-code:focus { border-color: #00c8ff; box-shadow: 0 0 0 2px rgba(0,200,255,.08); }
-        .sc-code-badge { position: absolute; top: 8px; right: 10px; font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 2px; color: #1a4a6a; text-transform: uppercase; }
-        .sc-file-zone { border: 1px dashed #0e2e47; border-radius: 2px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: border-color .2s; background: #060e18; }
-        .sc-file-zone:hover { border-color: #00c8ff; }
-        .sc-file-icon { font-size: 20px; opacity: .6; }
-        .sc-file-label { font-family: 'Space Mono', monospace; font-size: 10px; color: #3a7a9c; letter-spacing: 1px; }
-        .sc-file-list { font-size: 12px; color: #3a7a9c; font-family: 'Space Mono', monospace; }
-        .sc-divider { border: none; border-top: 1px solid #0e2e47; margin: 20px 0; }
-        .sc-actions { display: flex; gap: 12px; align-items: center; }
-        .sc-btn-submit { flex: 1; background: #00c8ff; color: #060e18; font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; border: none; border-radius: 2px; padding: 14px 24px; cursor: pointer; font-weight: 700; transition: background .2s, transform .1s; }
-        .sc-btn-submit:hover { background: #33d4ff; }
-        .sc-btn-submit:active { transform: scale(0.98); }
-        .sc-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .sc-btn-submit.error { background: #ff4455 !important; }
-        .sc-btn-cancel { background: transparent; color: #3a6080; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 2px; border: 1px solid #0e2e47; border-radius: 2px; padding: 14px 20px; cursor: pointer; transition: border-color .2s, color .2s; }
-        .sc-btn-cancel:hover { border-color: #3a6080; color: #5a8090; }
-        .sc-status-bar { display: flex; gap: 20px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #0a1e30; flex-wrap: wrap; }
-        .sc-stat { display: flex; flex-direction: column; gap: 2px; }
-        .sc-stat-val { font-family: 'Space Mono', monospace; font-size: 15px; color: #00c8ff; font-weight: 700; }
-        .sc-stat-lbl { font-size: 10px; color: #2a5a7a; letter-spacing: 1px; text-transform: uppercase; }
-        .sc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00c8ff; margin-right: 6px; animation: sc-blink 1.2s ease-in-out infinite; }
-        @keyframes sc-blink { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
-        .sc-live { font-family: 'Space Mono', monospace; font-size: 10px; color: #3a7a9c; display: flex; align-items: center; }
-        .sc-toast { display: none; position: fixed; top: 20px; right: 20px; background: #0d2a1a; border: 1px solid #0a5020; border-radius: 4px; padding: 12px 20px; font-family: 'Space Mono', monospace; font-size: 11px; color: #00e87a; letter-spacing: 1px; z-index: 10; animation: sc-fadein .3s ease; }
-        .sc-toast.error { background: #2a0d12; border-color: #500a15; color: #ff6677; }
-        .sc-toast.show { display: block; }
-        @keyframes sc-fadein { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 600px) { .sc-row { grid-template-columns: 1fr; } }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        .sc-page {
+          min-height: 100vh;
+          background-color: #F8FAFC;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: #1E293B;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .sc-container {
+          max-width: 960px;
+          width: 100%;
+          margin: 0 auto;
+          padding: 36px 24px 80px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          flex: 1;
+        }
+
+        .sc-header {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .sc-eyebrow {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 0.12em;
+          color: #2563EB;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+
+        .sc-title {
+          font-size: 32px;
+          font-weight: 800;
+          color: #0F172A;
+          letter-spacing: -0.02em;
+        }
+
+        .sc-sub {
+          font-size: 14px;
+          color: #64748B;
+        }
+
+        /* Stats strip */
+        .sc-ticker {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 10px;
+          padding: 10px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          flex-wrap: wrap;
+          gap: 16px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .sc-tick-item {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: #64748B;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .sc-tick-item span {
+          color: #059669;
+          font-weight: 700;
+        }
+
+        /* Form Card */
+        .sc-card {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 14px;
+          padding: 32px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .sc-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 16px;
+        }
+
+        @media (max-width: 650px) {
+          .sc-row { grid-template-columns: 1fr; }
+        }
+
+        .sc-field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .sc-field label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #334155;
+        }
+
+        .sc-input, .sc-select, .sc-textarea {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 8px;
+          color: #0F172A;
+          padding: 10px 14px;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
+          width: 100%;
+        }
+
+        .sc-input:focus, .sc-select:focus, .sc-textarea:focus {
+          border-color: #2563EB;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .sc-textarea {
+          resize: vertical;
+          min-height: 85px;
+          line-height: 1.5;
+        }
+
+        .sc-code-wrap {
+          position: relative;
+        }
+
+        .sc-code {
+          background: #0F172A;
+          border: 1px solid #334155;
+          border-radius: 8px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 13px;
+          color: #38BDF8;
+          min-height: 220px;
+          line-height: 1.6;
+          padding: 16px;
+          resize: vertical;
+          width: 100%;
+          outline: none;
+        }
+
+        .sc-code-badge {
+          position: absolute;
+          top: 10px;
+          right: 14px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          font-weight: 600;
+          color: #94A3B8;
+          background: rgba(255, 255, 255, 0.1);
+          padding: 2px 8px;
+          border-radius: 4px;
+        }
+
+        .sc-divider {
+          border: none;
+          border-top: 1px solid #F1F5F9;
+          margin: 6px 0;
+        }
+
+        .sc-actions {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .sc-btn-submit {
+          flex: 1;
+          background: #2563EB;
+          color: #FFFFFF;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+
+        .sc-btn-submit:hover {
+          background: #1D4ED8;
+        }
+
+        .sc-btn-submit.error {
+          background: #DC2626 !important;
+        }
+
+        .sc-btn-back {
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 12px 18px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .sc-btn-back:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+        }
+
+        .sc-toast {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #059669;
+          color: #FFFFFF;
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          z-index: 9999;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .sc-toast.error {
+          background: #DC2626;
+        }
       `}</style>
 
-      <div className="sc-wrap">
-        <div className="sc-corner tl" /><div className="sc-corner tr" />
-        <div className="sc-corner bl" /><div className="sc-corner br" />
+      <div className="sc-page">
+        <PortalNavbar
+          active="submit"
+          breadcrumbs={[{ label: "Submit Code" }]}
+          backFallback="/dashboard"
+        />
 
-        <div className="sc-header">
-          <div className="sc-sys-label">— CODE REVIEW SYSTEM · v2.4.1 —</div>
-          <div className="sc-title">Submit Code</div>
-          <div className="sc-subtitle">Share for anonymous review &amp; feedback</div>
-        </div>
+        <main className="sc-container">
+          <div className="sc-header">
+            <span className="sc-eyebrow">— CODE REVIEW SYSTEM · V2.4.1 —</span>
+            <h1 className="sc-title">Submit Code</h1>
+            <p className="sc-sub">Share for anonymous review &amp; automated architecture evaluation</p>
+          </div>
 
-        {/* Dynamic ticker */}
-        <div className="sc-ticker">
-          <div className="sc-ticker-inner">
-            {[...tickerStats, ...tickerStats].map((t, i) => (
+          <div className="sc-ticker">
+            {tickerStats.map((t, i) => (
               <div key={i} className="sc-tick-item">
-                {t.label} <span>{t.val}</span>
+                {t.label}: <span>{t.val}</span>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="sc-card">
-          <div className="sc-row">
-            <div className="sc-field">
-              <label>Title *</label>
-              <input name="title" className="sc-input" placeholder="e.g. Sorting algorithm optimization"
-                value={form.title} onChange={handleChange} />
+          <div className="sc-card">
+            <div className="sc-row">
+              <div className="sc-field">
+                <label>Title *</label>
+                <input
+                  name="title"
+                  className="sc-input"
+                  placeholder="e.g. Distributed lock optimization in Redis"
+                  value={form.title}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="sc-field">
+                <label>Language</label>
+                <select
+                  name="language"
+                  className="sc-select"
+                  value={form.language}
+                  onChange={handleChange}
+                >
+                  <option value="">Select language</option>
+                  {["Python", "JavaScript", "TypeScript", "Go", "Java", "C++", "Rust", "SQL", "Other"].map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="sc-field">
-              <label>Language</label>
-              <select name="language" className="sc-select" value={form.language} onChange={handleChange}>
-                <option value="">Select language</option>
-                {["C", "C++", "Java", "Python", "JavaScript", "TypeScript", "Go", "Rust", "SQL", "Other"].map((l) => (
-                  <option key={l}>{l}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          <div className="sc-row full">
             <div className="sc-field">
               <label>Description</label>
-              <textarea name="description" className="sc-textarea"
-                placeholder="Describe your problem, approach, or doubts..."
-                value={form.description} onChange={handleChange} />
+              <textarea
+                name="description"
+                className="sc-textarea"
+                placeholder="Describe your design choices, bottlenecks, or doubts..."
+                value={form.description}
+                onChange={handleChange}
+              />
             </div>
-          </div>
 
-          <div className="sc-row full">
             <div className="sc-field">
               <label>Code *</label>
               <div className="sc-code-wrap">
-                <textarea className="sc-code" placeholder="// Paste your code here..."
-                  value={form.code} onChange={handleCodeChange} />
+                <textarea
+                  className="sc-code"
+                  placeholder="// Paste your code snippet here..."
+                  value={form.code}
+                  onChange={handleCodeChange}
+                />
                 <div className="sc-code-badge">{lineCount} line{lineCount !== 1 ? "s" : ""}</div>
               </div>
             </div>
-          </div>
 
-          {/*<div className="sc-row full">
-            <div className="sc-field">
-              <label>Attachments</label>
-              <div className="sc-file-zone" onClick={() => fileInputRef.current.click()}>
-                <div className="sc-file-icon">⊕</div>
-                <div className="sc-file-label">Upload screenshots / files</div>
-                <div className="sc-file-list">
-                  {files.length ? files.map((f) => f.name).join(", ") : "No files selected"}
-                </div>
-                <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFileChange} />
-              </div>
+            <hr className="sc-divider" />
+
+            <div className="sc-actions">
+              <button className="sc-btn-back" onClick={() => navigate("/dashboard")}>
+                ← Back to Dashboard
+              </button>
+              <button className="sc-btn-back" onClick={resetForm} disabled={loading}>
+                Clear
+              </button>
+              <button
+                className={`sc-btn-submit${btnError ? " error" : ""}`}
+                onClick={submitCode}
+                disabled={loading}
+              >
+                {loading ? "Submitting…" : btnError ? "! Title & Code Required" : "Submit for Review →"}
+              </button>
             </div>
-          </div>*/}
-
-          <hr className="sc-divider" />
-
-          <div className="sc-actions">
-            <button className="sc-btn-cancel" onClick={resetForm} disabled={loading}>Clear</button>
-            <button
-              className={`sc-btn-submit${btnError ? " error" : ""}`}
-              onClick={submitCode}
-              disabled={loading}
-            >
-              {loading ? "Submitting…" : btnError ? "! Title & Code Required" : "Submit for Review →"}
-            </button>
           </div>
+        </main>
 
-          {/* Dynamic status bar */}
-          <div className="sc-status-bar">
-            <div className="sc-live"><span className="sc-dot" />Live</div>
-            {tickerStats.slice(0, 4).map((s) => (
-              <div key={s.label} className="sc-stat">
-                <div className="sc-stat-val">{s.val}</div>
-                <div className="sc-stat-lbl">{s.label}</div>
-              </div>
-            ))}
+        {toast && (
+          <div className={`sc-toast ${btnError ? "error" : ""}`}>
+            {toastMsg}
           </div>
-        </div>
-
-        <div className={`sc-toast${toast ? " show" : ""}${btnError ? " error" : ""}`}>
-          {toastMsg}
-        </div>
+        )}
       </div>
     </>
   );

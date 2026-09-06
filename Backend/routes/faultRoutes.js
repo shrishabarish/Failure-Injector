@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 const faultController = require("../utils/faultController");
 const structuredLogger = require("../utils/structuredLogger");
 
@@ -11,7 +12,18 @@ function verifyFaultAdmin(req, res, next) {
     return next();
   }
 
-  if (req.user && req.user.role === "ADMIN") {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_jwt_secret_key");
+      req.user = decoded;
+    } catch (e) {
+      // Token expired or invalid, proceed to role/key check
+    }
+  }
+
+  if (req.user && (req.user.role === "ADMIN" || req.user.role === "admin")) {
     return next();
   }
 

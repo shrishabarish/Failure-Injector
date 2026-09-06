@@ -4,6 +4,7 @@
   "description": "Code Review System Cloud & Fault-Injectable Backend",
   "main": "server.js",
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.1127.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
