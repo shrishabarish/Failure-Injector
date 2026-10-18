@@ -9,7 +9,7 @@ function getPostgresPool() {
       port: parseInt(process.env.DB_PORT || "5432", 10),
       database: process.env.DB_NAME || "codereview",
       user: process.env.DB_USER || "postgres",
-      password: process.env.DB_PASSWORD || "postgres",
+      password: process.env.DB_PASSWORD || "postgrespassword",
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,

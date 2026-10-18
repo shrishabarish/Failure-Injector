@@ -1,5 +1,36 @@
 const Log = require("../models/LogModel");
 const { CloudWatchClient, PutMetricDataCommand } = require("@aws-sdk/client-cloudwatch");
+const http = require("http");
+const https = require("https");
+
+// RCA Webhook: fire-and-forget POST to CloudLens RCA platform
+const RCA_WEBHOOK_URL = process.env.RCA_WEBHOOK_URL || "http://localhost:8000/api/events/webhook";
+
+function sendToRcaWebhook(logEntry) {
+  if (!RCA_WEBHOOK_URL) return;
+  try {
+    const parsed = new URL(RCA_WEBHOOK_URL);
+    const client = parsed.protocol === "https:" ? https : http;
+    const postData = JSON.stringify(logEntry);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+      path: parsed.pathname + (parsed.search || ""),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(postData),
+        "X-Source-App": "aws-failure-codereview",
+      },
+      timeout: 3000,
+    };
+    const req = client.request(options, () => {});
+    req.on("error", () => {}); // silent failover: RCA platform may be offline or starting
+    req.on("timeout", () => req.destroy());
+    req.write(postData);
+    req.end();
+  } catch (_) {}
+}
 
 // Initialize CloudWatch Client
 // It automatically uses credentials from environment variables, ~/.aws/credentials, or IAM roles
@@ -107,9 +138,9 @@ const structuredLogger = {
     } else {
       console.log(JSON.stringify(logEntry));
     }
-
-    // Push ERROR/CRITICAL/WARN telemetry to AWS CloudWatch
-    if (level === "ERROR" || level === "CRITICAL" || level === "WARN") {
+    // Push ERROR/CRITICAL/WARN/FAULT telemetry to RCA Webhook & AWS CloudWatch
+    if (level === "ERROR" || level === "CRITICAL" || level === "WARN" || isFaultInjected) {
+      sendToRcaWebhook(logEntry);
       sendToCloudWatch(logEntry);
     }
 

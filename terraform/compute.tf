@@ -52,7 +52,8 @@ resource "aws_ecs_task_definition" "app" {
         { name = "DB_NAME", value = var.db_name },
         { name = "DB_USER", value = var.db_username },
         { name = "DB_PASSWORD", value = var.db_password },
-        { name = "FAULT_INJECTION_ENABLED", value = "true" }
+        { name = "FAULT_INJECTION_ENABLED", value = "true" },
+        { name = "RCA_WEBHOOK_URL", value = "http://localhost:8000/api/events/webhook" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
